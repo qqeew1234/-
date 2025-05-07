@@ -4,7 +4,11 @@
 from flask import Flask, jsonify, request, send_from_directory
 import requests, random, time
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+app = Flask(
+    __name__,
+    static_folder='.',
+    static_url_path=''
+)
 
 # Reverse-geocode proxy
 @app.route('/reverse')
@@ -35,7 +39,7 @@ def reverse_proxy():
         app.logger.error(f"[reverse] fetch failed: {e}")
         return jsonify({'place': 'Local'}), 200
 
-# Weather counter & image API
+# 날씨·카운터·이미지 API
 counter = 0
 last_weather_ts = 0
 current_weather = 'clouds'
@@ -45,10 +49,10 @@ WEATHER_URL = (
     "https://api.open-meteo.com/v1/forecast"
     "?latitude={lat}&longitude={lon}&current_weather=true"
 )
-# original 고화질 이미지 요청
 WIKI_IMAGE_API = (
     "https://en.wikipedia.org/w/api.php?action=query&format=json"
-    "&prop=pageimages&piprop=original"
+    "&prop=pageimages"
+    "&piprop=thumbnail&pithumbsize=400"           # ← 가로 400px 썸네일 요청
     "&generator=geosearch&ggscoord={lat}%7C{lon}"
     "&ggsradius=10000&ggslimit=6"
 )
@@ -93,9 +97,9 @@ def get_counter():
             ).json()
             pages = wiki.get('query', {}).get('pages', {}).values()
             image_cache = [
-                p['original']['source']
+                p['thumbnail']['source']
                 for p in pages
-                if 'original' in p and 'source' in p['original']
+                if 'thumbnail' in p and 'source' in p['thumbnail']
             ]
             random.shuffle(image_cache)
         except Exception as e:
@@ -125,11 +129,10 @@ def favicon():
 def index():
     return send_from_directory('.', 'index.html')
 
-# /counter에만 30분 캐시
+# 캐시 비활성화
 @app.after_request
-def set_cache_control(res):
-    if request.path == '/counter':
-        res.headers['Cache-Control'] = 'public, max-age=1800'
+def set_no_cache(res):
+    res.headers['Cache-Control'] = 'no-store'
     return res
 
 if __name__ == '__main__':

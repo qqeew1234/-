@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title id="page-title">Local 날씨 멍</title>
-
+  <title>날씨 멍</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
@@ -78,8 +77,31 @@
       text-shadow: 0 0 4px rgba(0,0,0,0.7); z-index: 1; pointer-events: none;
     }
   </style>
+</head>
+<body>
+  <div id="overlay">
+    <div class="overlay-content">
+      <div class="overlay-spinner"></div>
+      <p>이미지를 불러오는 중입니다… 잠시만 기다려주세요.</p>
+    </div>
+  </div>
+  <div id="bg1"></div>
+  <div id="bg2"></div>
+  <div id="effect-overlay"></div>
 
+  <div class="container">
+    <div id="header-location">Local</div>
+    <div id="header-status">날씨 멍</div>
+    <div id="weather-icon">☁️</div>
+    <div id="counter">0</div>
+  </div>
+  <div class="footer">made by 권상윤</div>
+
+  <!-- 스크립트를 body 맨 아래로 옮겨 defer 없이도 DOM 로드 후 실행되도록 -->
   <script>
+    console.log('🔔 script.js 실행됨');
+    window.onerror = (msg, url, line) => console.error('GlobalError:', msg, 'at', line);
+
     const DEFAULT_LAT = 37.5665, DEFAULT_LON = 126.9780;
     const TICK = 1000, SYNC_INTERVAL = 30 * 60 * 1000;
     let localCount = 0, prev = 0, incMin = 1, incMax = 3;
@@ -129,10 +151,7 @@
       const r = document.getElementById('counter').getBoundingClientRect();
       el.style.left = r.left + r.width / 2 + 'px';
       el.style.top = r.top + 'px';
-      setTimeout(() => {
-        el.style.top = r.top - 30 + 'px';
-        el.style.opacity = 0;
-      }, 50);
+      setTimeout(() => { el.style.top = r.top - 30 + 'px'; el.style.opacity = 0; }, 50);
       setTimeout(() => el.remove(), 1100);
     }
 
@@ -141,21 +160,23 @@
       ov.className = '';
       ov.classList.add(
         w === 'clear'  ? 'effect-clear' :
-        w === 'clouds' ? 'effect-clouds' :
-                         'effect-rain'
+        w === 'clouds' ? 'effect-clouds' : 'effect-rain'
       );
       document.querySelector('.container').style.backgroundColor =
         w === 'clear'  ? 'rgba(255,245,157,0.8)' :
-        w === 'clouds' ? 'rgba(144,164,174,0.8)' :
-                         'rgba(144,202,249,0.8)';
+        w === 'clouds' ? 'rgba(144,164,174,0.8)' : 'rgba(144,202,249,0.8)';
     }
 
     async function reverseGeo(lat, lon) {
+      console.log('🌐 reverseGeo()', lat, lon);
       try {
         const res = await fetch(`/reverse?lat=${lat}&lon=${lon}`);
+        console.log('📨 /reverse status:', res.status);
         const data = await res.json();
+        console.log('📦 reverseGeo data:', data);
         return data.place || 'Local';
-      } catch {
+      } catch (err) {
+        console.error('❌ reverseGeo error:', err);
         return 'Local';
       }
     }
@@ -166,15 +187,19 @@
     }
 
     async function initialLoad(lat, lon) {
+      console.log('🚀 initialLoad()', lat, lon);
       const counterPromise = fetch(`/counter?lat=${lat}&lon=${lon}&sync=true`).then(r => r.json());
-      const placePromise   = reverseGeo(lat, lon);
-      const [d, place]     = await Promise.all([counterPromise, placePromise]);
+      const placePromise = reverseGeo(lat, lon);
 
-      document.getElementById('header-location').innerText = place;
-      document.getElementById('page-title').innerText    = `${place} 날씨 멍`;
+      const [d, place] = await Promise.all([counterPromise, placePromise]);
+      console.log('✅ initialLoad result:', d, place);
+
+      const el = document.getElementById('header-location');
+      console.log('🔍 header-location element:', el);
+      el.innerText = place;
 
       images = d.image_urls.slice(0, 6);
-      const idx      = Math.floor(Math.random() * images.length);
+      const idx = Math.floor(Math.random() * images.length);
       const firstUrl = images.splice(idx, 1)[0];
 
       await loadImage(firstUrl);
@@ -182,12 +207,9 @@
       hideOverlay();
 
       await Promise.all(images.map(loadImage));
-
       images.unshift(firstUrl);
-      setInterval(() => {
-        shuffleArray(images);
-        crossfade(images[0]);
-      }, 5000);
+
+      setInterval(() => { shuffleArray(images); crossfade(images[0]); }, 5000);
 
       localCount = d.counter;
       [incMin, incMax] = d.incRange;
@@ -211,14 +233,14 @@
           document.getElementById('counter').innerText = cur;
           if (cur >= localCount) clearInterval(id);
         }, step);
-        playDing();
-        showFloating(inc);
-        prev = localCount;
+        playDing(); showFloating(inc); prev = localCount;
       }, TICK);
     }
 
     function start() {
+      console.log('▶ start()');
       async function init(lat, lon) {
+        console.log('▶ init()', lat, lon);
         await initialLoad(lat, lon);
         startLocalTick();
         setInterval(() => initialLoad(lat, lon), SYNC_INTERVAL);
@@ -237,23 +259,5 @@
 
     window.onload = start;
   </script>
-</head>
-<body>
-  <div id="overlay">
-    <div class="overlay-content">
-      <div class="overlay-spinner"></div>
-      <p>이미지를 불러오는 중입니다… 잠시만 기다려주세요.</p>
-    </div>
-  </div>
-  <div id="bg1"></div>
-  <div id="bg2"></div>
-  <div id="effect-overlay"></div>
-  <div class="container">
-    <div id="header-location">Local</div>
-    <div id="header-status">날씨 멍</div>
-    <div id="weather-icon">☁️</div>
-    <div id="counter">0</div>
-  </div>
-  <div class="footer">made by 권상윤</div>
 </body>
 </html>
