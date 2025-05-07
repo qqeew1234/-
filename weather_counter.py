@@ -27,17 +27,18 @@ def reverse_proxy():
         data = resp.json()
         addr = data.get('address', {})
         place = (
-            addr.get('city') or
-            addr.get('town') or
-            addr.get('village') or
-            addr.get('county') or
-            (data.get('display_name') or '').split(',')[0] or
-            'Local'
+                addr.get('city') or
+                addr.get('town') or
+                addr.get('village') or
+                addr.get('county') or
+                (data.get('display_name') or '').split(',')[0] or
+                'Local'
         )
         return jsonify({'place': place})
     except Exception as e:
         app.logger.error(f"[reverse] fetch failed: {e}")
         return jsonify({'place': 'Local'}), 200
+
 
 # 날씨·카운터·이미지 API
 counter = 0
@@ -52,10 +53,11 @@ WEATHER_URL = (
 WIKI_IMAGE_API = (
     "https://en.wikipedia.org/w/api.php?action=query&format=json"
     "&prop=pageimages"
-    "&piprop=thumbnail&pithumbsize=400"           # ← 가로 400px 썸네일 요청
+    "&piprop=thumbnail&pithumbsize=400"  # ← 가로 400px 썸네일 요청
     "&generator=geosearch&ggscoord={lat}%7C{lon}"
     "&ggsradius=10000&ggslimit=6"
 )
+
 
 def get_inc_range(weather):
     if weather == 'rain':
@@ -65,14 +67,15 @@ def get_inc_range(weather):
     else:
         return [4, 5]
 
+
 @app.route('/counter')
 def get_counter():
     global counter, last_weather_ts, current_weather, image_cache
 
-    lat  = request.args.get('lat', '37.5665')
-    lon  = request.args.get('lon', '126.9780')
+    lat = request.args.get('lat', '37.5665')
+    lon = request.args.get('lon', '126.9780')
     sync = request.args.get('sync', 'false').lower() == 'true'
-    now  = time.time()
+    now = time.time()
 
     # 30분마다 날씨+이미지 갱신
     if now - last_weather_ts > 1800 or not image_cache:
@@ -84,7 +87,7 @@ def get_counter():
             code = wj.get('weathercode', 1)
             current_weather = (
                 'clear' if code == 0 else
-                'clouds' if code in (1,2,3) else
+                'clouds' if code in (1, 2, 3) else
                 'rain'
             )
         except Exception as e:
@@ -119,21 +122,25 @@ def get_counter():
         image_urls=image_cache
     )
 
+
 # favicon 서빙
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory('.', 'favicon.ico')
+
 
 # index.html 서빙
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
 
+
 # 캐시 비활성화
 @app.after_request
 def set_no_cache(res):
     res.headers['Cache-Control'] = 'no-store'
     return res
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
