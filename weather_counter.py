@@ -4,14 +4,42 @@
 from flask import Flask, jsonify, request, send_from_directory
 import requests, random, time
 
-# Flask 앱 생성: 현재 폴더를 static 파일 루트로 설정
 app = Flask(
     __name__,
     static_folder='.',
     static_url_path=''
 )
 
-# 서버 카운터 및 캐시 상태
+# Reverse-geocode proxy (avoids CORS issues)
+@app.route('/reverse')
+def reverse_proxy():
+    lat = request.args.get('lat')
+    lon = request.args.get('lon')
+    if not lat or not lon:
+        return jsonify({'error': 'lat&lon required'}), 400
+    try:
+        resp = requests.get(
+            'https://nominatim.openstreetmap.org/reverse',
+            params={'lat': lat, 'lon': lon, 'format': 'json'},
+            headers={'User-Agent': 'LocalWeatherCounter/1.0'},
+            timeout=5
+        )
+        data = resp.json()
+        addr = data.get('address', {})
+        place = (
+            addr.get('city') or
+            addr.get('town') or
+            addr.get('village') or
+            addr.get('county') or
+            (data.get('display_name') or '').split(',')[0] or
+            'Local'
+        )
+        return jsonify({'place': place})
+    except Exception as e:
+        app.logger.error(f"[reverse] fetch failed: {e}")
+        return jsonify({'place': 'Local'}), 200
+
+# Weather-counter API
 counter = 0
 last_weather_ts = 0
 current_weather = 'clouds'
@@ -29,22 +57,22 @@ WIKI_IMAGE_API = (
 
 def get_inc_range(weather):
     if weather == 'rain':
-        return [0, 1]   # 비일 때 0~1
+        return [0, 1]
     elif weather == 'clouds':
-        return [2, 3]   # 흐릴 때 2~3
-    else:  # 'clear'
-        return [4, 5]   # 맑을 때 4~5
+        return [2, 3]
+    else:
+        return [4, 5]
 
 @app.route('/counter')
 def get_counter():
     global counter, last_weather_ts, current_weather, image_cache
 
-    lat  = request.args.get('lat',  '37.5665')
-    lon  = request.args.get('lon',  '126.9780')
+    lat  = request.args.get('lat', '37.5665')
+    lon  = request.args.get('lon', '126.9780')
     sync = request.args.get('sync', 'false').lower() == 'true'
     now  = time.time()
 
-    # 30분마다 날씨+이미지 갱신
+    # 30분마다 날씨 + 이미지 갱신
     if now - last_weather_ts > 1800 or not image_cache:
         try:
             wj = requests.get(
@@ -52,12 +80,11 @@ def get_counter():
                 timeout=5
             ).json().get('current_weather', {})
             code = wj.get('weathercode', 1)
-            if code == 0:
-                current_weather = 'clear'
-            elif code in (1,2,3):
-                current_weather = 'clouds'
-            else:
-                current_weather = 'rain'
+            current_weather = (
+                'clear' if code == 0 else
+                'clouds' if code in (1,2,3) else
+                'rain'
+            )
         except Exception as e:
             app.logger.error(f"[weather] fetch failed: {e}")
 
@@ -78,27 +105,29 @@ def get_counter():
 
         last_weather_ts = now
 
-    # 동기화 요청(sync=true)이면 서버 카운트 증가
+    # sync=true 이면 카운트 증가
     if sync:
         inc_min, inc_max = get_inc_range(current_weather)
         counter += random.randint(inc_min, inc_max)
 
-    # 클라이언트용 증분 범위
-    inc_range = get_inc_range(current_weather)
-
     return jsonify(
         counter=counter,
         weather=current_weather,
-        incRange=inc_range,
+        incRange=get_inc_range(current_weather),
         image_urls=image_cache
     )
 
-# 정적 파일(index.html) 서빙
+# Serve favicon to suppress 404
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory('.', 'favicon.ico')
+
+# Serve index.html
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
 
-# 중간 캐시까지 차단
+# Disable caching
 @app.after_request
 def set_no_cache(res):
     res.headers['Cache-Control'] = 'no-store'
