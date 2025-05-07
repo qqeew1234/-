@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title id="page-title">Local 날씨 멍</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; overflow:hidden; font-family:'Segoe UI',sans-serif; }
+    #bg1,#bg2,#effect-overlay {
+      position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;
+    }
+    #bg1,#bg2 {
+      background-size:cover; background-position:center;
+      transition:opacity 1s ease-in-out;
+    }
+    #bg1 { z-index:-3; opacity:1; }
+    #bg2 { z-index:-4; opacity:0; }
+    #effect-overlay { z-index:-2; }
+
+    .container {
+      position:absolute;
+      top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      z-index:1;
+      width:320px; padding:2rem;
+      border-radius:1rem;
+      box-shadow:0 8px 20px rgba(0,0,0,0.1);
+      text-align:center;
+      transition:background-color .5s;
+    }
+    #header-location { font-size:2rem; font-weight:bold; margin-bottom:.5rem; }
+    #header-status   { font-size:2.5rem; font-weight:bold; color:#FF6F61; margin-bottom:1rem; }
+    #weather-icon    { font-size:2.5rem; margin-bottom:.5rem; }
+    #counter         { font-size:3rem; font-weight:bold; color:#FF6F61; }
+
+    .floating {
+      position:absolute; font-size:2rem; color:#FF6F61;
+      z-index:2; transition:all 1s ease-out; pointer-events:none;
+    }
+
+    .effect-clear { animation:sunshine 3s infinite; }
+    @keyframes sunshine {
+      0%   { background:radial-gradient(circle at center,rgba(255,255,224,0.4)0%,transparent70%); }
+      50%  { background:radial-gradient(circle at center,rgba(255,249,196,0.6)0%,transparent70%); }
+      100% { background:radial-gradient(circle at center,rgba(255,255,224,0.4)0%,transparent70%); }
+    }
+    .effect-rain {
+      background-image:radial-gradient(rgba(255,255,255,0.3)1px,transparent1px);
+      background-size:3px 10px; animation:rain .5s linear infinite;
+    }
+    @keyframes rain { 0%{background-position:0 0}100%{background-position:0 10px} }
+    .effect-clouds { background:rgba(0,0,0,0.2); }
+  </style>
+
+  <script>
+    console.log("🟢 script start");  // 로드 확인용
+
+    const DEFAULT_LAT    = 37.5665, DEFAULT_LON = 126.9780;
+    const TICK           = 1000;             // 1초
+    const SYNC_INTERVAL  = 30*60*1000;       // 30분
+
+    let localCount = 0, prev = 0;
+    let incMin = 1, incMax = 3;
+    let images = [], lastBg = 1, imgTs = 0;
+
+    function crossfade(url) {
+      const now = Date.now();
+      if (!imgTs || now - imgTs > 15000) {
+        imgTs = now;
+        const nxt = lastBg===1?2:1;
+        document.getElementById('bg'+nxt).style.backgroundImage = `url('${url}')`;
+        document.getElementById('bg'+nxt).style.opacity = 1;
+        document.getElementById('bg'+lastBg).style.opacity = 0;
+        lastBg = nxt;
+      }
+    }
+
+    function playDing() {
+      const ctx = new (window.AudioContext||webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      osc.type='sine'; osc.frequency.setValueAtTime(1000,ctx.currentTime);
+      osc.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+0.1);
+    }
+
+    function showFloating(inc) {
+      const el = document.createElement('div');
+      el.className='floating'; el.innerText='+'+inc;
+      document.body.appendChild(el);
+      const r = document.getElementById('counter').getBoundingClientRect();
+      el.style.left = r.left + r.width/2 + 'px';
+      el.style.top  = r.top + 'px';
+      setTimeout(()=>{ el.style.top=r.top-30+'px'; el.style.opacity=0; },50);
+      setTimeout(()=>el.remove(),1100);
+    }
+
+    function applyEffects(w) {
+      const ov = document.getElementById('effect-overlay');
+      ov.className = '';
+      ov.classList.add(
+        w==='clear'? 'effect-clear' :
+        w==='clouds'? 'effect-clouds' :
+                      'effect-rain'
+      );
+      document.querySelector('.container').style.backgroundColor =
+        w==='clear'?  'rgba(255,245,157,0.8)' :
+        w==='clouds'? 'rgba(144,164,174,0.8)' :
+                      'rgba(144,202,249,0.8)';
+    }
+
+    async function reverseGeo(lat, lon) {
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+        const d = await r.json(), a = d.address;
+        return a.city||a.town||a.village||a.county||'Local';
+      } catch {
+        return 'Local';
+      }
+    }
+
+    async function syncFromServer(lat, lon) {
+      console.log("▶ syncFromServer");
+      const res = await fetch(`/counter?lat=${lat}&lon=${lon}&sync=true`);
+      const d   = await res.json();
+      localCount = d.counter;
+      [incMin, incMax] = d.incRange;
+
+      if (!images.length && Array.isArray(d.image_urls)) {
+        images = d.image_urls;
+        crossfade(images[0]+`?t=${Date.now()}`);
+        setInterval(() => {
+          const u = images[Math.floor(Math.random()*images.length)];
+          crossfade(u+`?t=${Date.now()}`);
+        }, 15000);
+      }
+
+      applyEffects(d.weather);
+      document.getElementById('weather-icon').innerText =
+        d.weather==='clear' ? '☀️' :
+        d.weather==='clouds'? '☁️' : '🌧️';
+      prev = localCount;
+      document.getElementById('counter').innerText = localCount;
+    }
+
+    function startLocalTick() {
+  setInterval(() => {
+    const inc = Math.floor(Math.random() * (incMax - incMin + 1)) + incMin;
+    localCount += inc;
+
+    // 부드러운 애니메이션: 단계 시간을 최소 50ms로 제한
+    const diff = localCount - prev;
+    const stepTime = Math.max(TICK / diff, 100);
+
+    let cur = prev;
+    const id = setInterval(() => {
+      cur++;
+      document.getElementById('counter').innerText = cur;
+      if (cur >= localCount) clearInterval(id);
+    }, stepTime);
+
+    // 작은 증가(<5)면 효과 생략
+    if (inc >= 5) {
+      playDing();
+      showFloating(inc);
+    }
+
+    prev = localCount;
+  }, TICK);
+}
+
+    function start() {
+      console.log("▶ start() 호출");
+      async function init(lat, lon) {
+        console.log("  ▶ init()", lat, lon);
+        await syncFromServer(lat, lon);
+        startLocalTick();
+        setInterval(()=>syncFromServer(lat, lon), SYNC_INTERVAL);
+      }
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          p=>init(p.coords.latitude, p.coords.longitude),
+          ()=>init(DEFAULT_LAT, DEFAULT_LON),
+          { timeout:5000 }
+        );
+      } else {
+        init(DEFAULT_LAT, DEFAULT_LON);
+      }
+    }
+
+    window.onload = start;
+  </script>
+</head>
+<body>
+  <div id="bg1"></div>
+  <div id="bg2"></div>
+  <div id="effect-overlay"></div>
+
+  <div class="container">
+    <div id="header-location">Local</div>
+    <div id="header-status">날씨 멍</div>
+    <div id="weather-icon">☁️</div>
+    <div id="counter">0</div>
+  </div>
+</body>
+</html>
