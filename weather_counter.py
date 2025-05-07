@@ -52,7 +52,7 @@ WEATHER_URL = (
 WIKI_IMAGE_API = (
     "https://en.wikipedia.org/w/api.php?action=query&format=json"
     "&prop=pageimages&piprop=original"
-    "&generator=geosearch&ggscoord={lat}%7C{lon}&ggsradius=10000&ggslimit=4"
+    "&generator=geosearch&ggscoord={lat}%7C{lon}&ggsradius=10000&ggslimit=6"
 )
 
 def get_inc_range(weather):
