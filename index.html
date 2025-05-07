@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon"
+  href="https://play-lh.googleusercontent.com/Y7-aJkenjEhNkdnJgtGcIKjj332vdvgTVozjG7tx2uXJC-9IOJKo7c_WB6qD9JcgCBk"
+  type="image/png">
+  
   <title>날씨 멍</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -42,6 +46,36 @@
       animation: spin 1s linear infinite; margin-bottom: 1rem;
     }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+
+
+
+
+
+
+
+    
+/* 1) 아이콘 크기를 키워줍니다 */
+#weather-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 5rem;          /* 기존 3rem → 4rem */
+  width: 5rem;
+  height: 5rem;
+}
+
+/* 2) 느리고 크게 회전하도록 키프레임에서 scale 추가 */
+@keyframes rotate-slow {
+  from { transform: rotate(0deg) scale(2); }
+  to   { transform: rotate(360deg) scale(2); }
+}
+
+/* 3) rotate 클래스가 붙으면 위 애니메이션 적용 */
+#weather-icon.rotate {
+  transform-origin: center center;
+  animation: rotate-slow 5s linear infinite;  /* 5초에 한 바퀴 */
+}
 
     /* 중앙 컨테이너 */
     .container {
@@ -217,6 +251,10 @@
       document.getElementById('weather-icon').innerText =
         d.weather === 'clear'  ? '☀️' :
         d.weather === 'clouds' ? '☁️' : '🌧️';
+
+        const icon = document.getElementById('weather-icon');
+        icon.classList.add('rotate');
+
       prev = localCount;
       document.getElementById('counter').innerText = localCount;
     }
