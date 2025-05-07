@@ -2,66 +2,87 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title id="page-title">Local 날씨 멍</title>
+
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    html, body { width:100%; height:100%; overflow:hidden; font-family:'Segoe UI',sans-serif; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+
+    /* 배경 및 효과 */
     #bg1, #bg2, #effect-overlay {
-      position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
     }
-    #bg1, #bg2 {
-      background-size:cover; background-position:center; transition:opacity 1s ease-in-out;
+    #bg1 {
+      /* 초기 로딩 전 보여줄 기본 이미지 */
+      background-image: url('https://play-lh.googleusercontent.com/Y7-aJkenjEhNkdnJgtGcIKjj332vdvgTVozjG7tx2uXJC-9IOJKo7c_WB6qD9JcgCBk');
+      background-size: cover; background-position: center;
+      z-index: -3; opacity: 1; transition: opacity 1s ease-in-out;
     }
-    #bg1 { z-index:-3; opacity:1; }
-    #bg2 { z-index:-4; opacity:0; }
-    #effect-overlay { z-index:-2; }
+    #bg2 {
+      background-size: cover; background-position: center;
+      z-index: -4; opacity: 0; transition: opacity 1s ease-in-out;
+    }
+    #effect-overlay { z-index: -2; }
 
+    /* 오버레이 */
+    #overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7); z-index: 5;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: auto;
+    }
+    #overlay .overlay-content {
+      display: flex; flex-direction: column; align-items: center;
+      color: white; font-size: 1.2rem; text-align: center; padding: 1rem;
+    }
+    .overlay-spinner {
+      width: 2rem; height: 2rem;
+      border: 4px solid rgba(255,255,255,0.6);
+      border-top-color: #FF6F61; border-radius: 50%;
+      animation: spin 1s linear infinite; margin-bottom: 1rem;
+    }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* 중앙 컨테이너 */
     .container {
-      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-      z-index:1; width:320px; padding:2rem; border-radius:1rem;
-      box-shadow:0 8px 20px rgba(0,0,0,0.1); text-align:center;
-      transition:background-color .5s;
-      background-color:rgba(144,164,174,0.8);
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      z-index: 1; width: 320px; padding: 2rem; border-radius: 1rem;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1); text-align: center;
+      transition: background-color .5s;
+      background-color: rgba(144,164,174,0.8);
     }
-    #header-location { font-size:2rem; font-weight:bold; margin-bottom:.5rem; }
-    #header-status   { font-size:2.5rem; font-weight:bold; color:#FF6F61; margin-bottom:1rem; }
-    #weather-icon    { font-size:2.5rem; margin-bottom:.5rem; }
-    #counter         { font-size:3rem; font-weight:bold; color:#FF6F61; }
+    #header-location { font-size: 2rem; font-weight: bold; margin-bottom: .5rem; }
+    #header-status   { font-size: 2.5rem; font-weight: bold; color: #FF6F61; margin-bottom: 1rem; }
+    #weather-icon    { font-size: 2.5rem; margin-bottom: .5rem; }
+    #counter         { font-size: 3rem; font-weight: bold; color: #FF6F61; }
 
-    .floating {
-      position:absolute; font-size:2rem; color:#FF6F61;
-      z-index:2; transition:all 1s ease-out; pointer-events:none;
-    }
-
-    .effect-clear { animation:sunshine 3s infinite; }
+    /* 플로팅 + 날씨 효과 + footer */
+    .floating { position: absolute; font-size: 2rem; color: #FF6F61; z-index: 2; transition: all 1s ease-out; pointer-events: none; }
+    .effect-clear { animation: sunshine 3s infinite; }
     @keyframes sunshine {
-      0%   { background:radial-gradient(circle at center,rgba(255,255,224,0.4)0%,transparent 70%); }
-      50%  { background:radial-gradient(circle at center,rgba(255,249,196,0.6)0%,transparent 70%); }
-      100% { background:radial-gradient(circle at center,rgba(255,255,224,0.4)0%,transparent 70%); }
+      0%   { background: radial-gradient(circle at center, rgba(255,255,224,0.4) 0%, transparent 70%); }
+      50%  { background: radial-gradient(circle at center, rgba(255,249,196,0.6) 0%, transparent 70%); }
+      100% { background: radial-gradient(circle at center, rgba(255,255,224,0.4) 0%, transparent 70%); }
     }
-
     .effect-rain {
-      background-image:radial-gradient(rgba(255,255,255,0.3)1px,transparent 1px);
-      background-size:3px 10px; animation:rain .5s linear infinite;
+      background-image: radial-gradient(rgba(255,255,255,0.3) 1px, transparent 1px);
+      background-size: 3px 10px; animation: rain .5s linear infinite;
     }
-    @keyframes rain { 0%{background-position:0 0}100%{background-position:0 10px} }
-
-    .effect-clouds { background:rgba(0,0,0,0.2); }
+    @keyframes rain { 0% { background-position: 0 0 } 100% { background-position: 0 10px } }
+    .effect-clouds { background: rgba(0,0,0,0.2); }
 
     .footer {
-      position:absolute; bottom:0.5rem; width:100%; text-align:center;
-      font-size:1.2rem; font-weight:bold; color:rgba(255,255,255,0.9);
-      text-shadow:0 0 4px rgba(0,0,0,0.7); z-index:1; pointer-events:none;
+      position: absolute; bottom: .5rem; width: 100%; text-align: center;
+      font-size: 1.2rem; font-weight: bold; color: rgba(255,255,255,0.9);
+      text-shadow: 0 0 4px rgba(0,0,0,0.7); z-index: 1; pointer-events: none;
     }
   </style>
-  <script>
-    const DEFAULT_LAT   = 37.5665, DEFAULT_LON = 126.9780;
-    const TICK          = 1000;
-    const SYNC_INTERVAL = 30*60*1000;
 
-    let localCount = 0, prev = 0;
-    let incMin = 1, incMax = 3;
+  <script>
+    const DEFAULT_LAT = 37.5665, DEFAULT_LON = 126.9780;
+    const TICK = 1000, SYNC_INTERVAL = 30 * 60 * 1000;
+    let localCount = 0, prev = 0, incMin = 1, incMax = 3;
     let images = [], bgIndex = 0, imgTs = 0;
 
     function shuffleArray(arr) {
@@ -71,115 +92,159 @@
       }
     }
 
+    function loadImage(url) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.src = url;
+        img.onload = img.onerror = () => resolve(url);
+      });
+    }
+
     function crossfade(url) {
       const now = Date.now();
-      if (!imgTs || now - imgTs > 15000) {
+      if (!imgTs || now - imgTs > 5000) {
         imgTs = now;
-        const nxt = bgIndex === 0 ? 1 : 0;
-        document.getElementById('bg'+(nxt+1)).style.backgroundImage = `url('${url}')`;
-        document.getElementById('bg'+(nxt+1)).style.opacity = 1;
-        document.getElementById('bg'+(bgIndex+1)).style.opacity = 0;
-        bgIndex = nxt;
+        const next = bgIndex === 0 ? 2 : 1;
+        const curr = bgIndex + 1;
+        document.getElementById('bg' + next).style.backgroundImage = `url('${url}')`;
+        document.getElementById('bg' + next).style.opacity = 1;
+        document.getElementById('bg' + curr).style.opacity = 0;
+        bgIndex = next - 1;
       }
     }
 
     function playDing() {
-      const ctx = new (window.AudioContext||webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      osc.type = 'sine'; osc.frequency.setValueAtTime(1000,ctx.currentTime);
-      osc.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+0.1);
+      const ctx = new (window.AudioContext || webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      const osc = ctx.createOscillator(); osc.type = 'sine';
+      osc.frequency.setValueAtTime(1000, ctx.currentTime);
+      osc.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.1);
     }
 
     function showFloating(inc) {
       const el = document.createElement('div');
-      el.className='floating'; el.innerText='+'+inc;
+      el.className = 'floating';
+      el.innerText = '+' + inc;
       document.body.appendChild(el);
       const r = document.getElementById('counter').getBoundingClientRect();
-      el.style.left = r.left + r.width/2 + 'px';
-      el.style.top  = r.top + 'px';
-      setTimeout(()=>{ el.style.top=r.top-30+'px'; el.style.opacity=0; },50);
-      setTimeout(()=>el.remove(),1100);
+      el.style.left = r.left + r.width / 2 + 'px';
+      el.style.top = r.top + 'px';
+      setTimeout(() => {
+        el.style.top = r.top - 30 + 'px';
+        el.style.opacity = 0;
+      }, 50);
+      setTimeout(() => el.remove(), 1100);
     }
 
     function applyEffects(w) {
-      const ov = document.getElementById('effect-overlay'); ov.className='';
+      const ov = document.getElementById('effect-overlay');
+      ov.className = '';
       ov.classList.add(
-        w==='clear'  ? 'effect-clear' :
-        w==='clouds' ? 'effect-clouds' :
-                       'effect-rain'
+        w === 'clear'  ? 'effect-clear' :
+        w === 'clouds' ? 'effect-clouds' :
+                         'effect-rain'
       );
       document.querySelector('.container').style.backgroundColor =
-        w==='clear'  ? 'rgba(255,245,157,0.8)' :
-        w==='clouds' ? 'rgba(144,164,174,0.8)' :
-                       'rgba(144,202,249,0.8)';
+        w === 'clear'  ? 'rgba(255,245,157,0.8)' :
+        w === 'clouds' ? 'rgba(144,164,174,0.8)' :
+                         'rgba(144,202,249,0.8)';
     }
 
-    // use proxy for reverse-geocoding
     async function reverseGeo(lat, lon) {
       try {
         const res = await fetch(`/reverse?lat=${lat}&lon=${lon}`);
-        const d   = await res.json();
-        return d.place || 'Local';
-      } catch (e) {
-        console.error('[reverseGeo]', e);
+        const data = await res.json();
+        return data.place || 'Local';
+      } catch {
         return 'Local';
       }
     }
 
-    async function initialSync(lat, lon) {
-      const res = await fetch(`/counter?lat=${lat}&lon=${lon}&sync=true`, { cache:'no-store' });
-      const d   = await res.json();
+    function hideOverlay() {
+      const ov = document.getElementById('overlay');
+      if (ov) ov.remove();
+    }
 
-      if (!images.length && Array.isArray(d.image_urls)) {
-        images = d.image_urls.slice(0,6);  // now using 6 images
-        document.getElementById('bg1').style.backgroundImage = `url('${images[0]}?t=${Date.now()}')`;
-        setInterval(()=>{ shuffleArray(images); crossfade(images[0]+`?t=${Date.now()}`); }, 10000);
-      }
+    async function initialLoad(lat, lon) {
+      const counterPromise = fetch(`/counter?lat=${lat}&lon=${lon}&sync=true`).then(r => r.json());
+      const placePromise   = reverseGeo(lat, lon);
+      const [d, place]     = await Promise.all([counterPromise, placePromise]);
+
+      document.getElementById('header-location').innerText = place;
+      document.getElementById('page-title').innerText    = `${place} 날씨 멍`;
+
+      images = d.image_urls.slice(0, 6);
+      const idx      = Math.floor(Math.random() * images.length);
+      const firstUrl = images.splice(idx, 1)[0];
+
+      await loadImage(firstUrl);
+      document.getElementById('bg1').style.backgroundImage = `url('${firstUrl}')`;
+      hideOverlay();
+
+      await Promise.all(images.map(loadImage));
+
+      images.unshift(firstUrl);
+      setInterval(() => {
+        shuffleArray(images);
+        crossfade(images[0]);
+      }, 5000);
 
       localCount = d.counter;
       [incMin, incMax] = d.incRange;
       applyEffects(d.weather);
       document.getElementById('weather-icon').innerText =
-        d.weather==='clear'? '☀️' : d.weather==='clouds'? '☁️' : '🌧️';
+        d.weather === 'clear'  ? '☀️' :
+        d.weather === 'clouds' ? '☁️' : '🌧️';
       prev = localCount;
       document.getElementById('counter').innerText = localCount;
     }
 
     function startLocalTick() {
-      setInterval(()=>{
-        const inc = Math.floor(Math.random()*(incMax-incMin+1))+incMin;
+      setInterval(() => {
+        const inc = Math.floor(Math.random() * (incMax - incMin + 1)) + incMin;
         localCount += inc;
         const diff = localCount - prev;
-        const stepTime = Math.max(TICK/diff,50);
+        const step = Math.max(TICK / diff, 50);
         let cur = prev;
-        const id = setInterval(()=>{ cur++; document.getElementById('counter').innerText = cur; if(cur>=localCount) clearInterval(id); }, stepTime);
-        playDing(); showFloating(inc); prev = localCount;
+        const id = setInterval(() => {
+          cur++;
+          document.getElementById('counter').innerText = cur;
+          if (cur >= localCount) clearInterval(id);
+        }, step);
+        playDing();
+        showFloating(inc);
+        prev = localCount;
       }, TICK);
     }
 
     function start() {
       async function init(lat, lon) {
-        const place = await reverseGeo(lat, lon);
-        document.getElementById('header-location').innerText = place;
-        document.getElementById('page-title').innerText = `${place} 날씨 멍`;
-        await initialSync(lat, lon);
+        await initialLoad(lat, lon);
         startLocalTick();
-        setInterval(()=>initialSync(lat, lon), SYNC_INTERVAL);
+        setInterval(() => initialLoad(lat, lon), SYNC_INTERVAL);
       }
+
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          p=>init(p.coords.latitude, p.coords.longitude),
-          ()=>init(DEFAULT_LAT, DEFAULT_LON),
-          {timeout:5000}
+          p => init(p.coords.latitude, p.coords.longitude),
+          () => init(DEFAULT_LAT, DEFAULT_LON),
+          { timeout: 5000 }
         );
       } else {
         init(DEFAULT_LAT, DEFAULT_LON);
       }
     }
+
     window.onload = start;
   </script>
 </head>
 <body>
+  <div id="overlay">
+    <div class="overlay-content">
+      <div class="overlay-spinner"></div>
+      <p>이미지를 불러오는 중입니다… 잠시만 기다려주세요.</p>
+    </div>
+  </div>
   <div id="bg1"></div>
   <div id="bg2"></div>
   <div id="effect-overlay"></div>

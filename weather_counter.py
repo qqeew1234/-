@@ -4,13 +4,9 @@
 from flask import Flask, jsonify, request, send_from_directory
 import requests, random, time
 
-app = Flask(
-    __name__,
-    static_folder='.',
-    static_url_path=''
-)
+app = Flask(__name__, static_folder='.', static_url_path='')
 
-# Reverse-geocode proxy (avoids CORS issues)
+# Reverse-geocode proxy
 @app.route('/reverse')
 def reverse_proxy():
     lat = request.args.get('lat')
@@ -39,7 +35,7 @@ def reverse_proxy():
         app.logger.error(f"[reverse] fetch failed: {e}")
         return jsonify({'place': 'Local'}), 200
 
-# Weather-counter API
+# Weather counter & image API
 counter = 0
 last_weather_ts = 0
 current_weather = 'clouds'
@@ -49,10 +45,12 @@ WEATHER_URL = (
     "https://api.open-meteo.com/v1/forecast"
     "?latitude={lat}&longitude={lon}&current_weather=true"
 )
+# original 고화질 이미지 요청
 WIKI_IMAGE_API = (
     "https://en.wikipedia.org/w/api.php?action=query&format=json"
     "&prop=pageimages&piprop=original"
-    "&generator=geosearch&ggscoord={lat}%7C{lon}&ggsradius=10000&ggslimit=6"
+    "&generator=geosearch&ggscoord={lat}%7C{lon}"
+    "&ggsradius=10000&ggslimit=6"
 )
 
 def get_inc_range(weather):
@@ -72,7 +70,7 @@ def get_counter():
     sync = request.args.get('sync', 'false').lower() == 'true'
     now  = time.time()
 
-    # 30분마다 날씨 + 이미지 갱신
+    # 30분마다 날씨+이미지 갱신
     if now - last_weather_ts > 1800 or not image_cache:
         try:
             wj = requests.get(
@@ -117,20 +115,21 @@ def get_counter():
         image_urls=image_cache
     )
 
-# Serve favicon to suppress 404
+# favicon 서빙
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory('.', 'favicon.ico')
 
-# Serve index.html
+# index.html 서빙
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
 
-# Disable caching
+# /counter에만 30분 캐시
 @app.after_request
-def set_no_cache(res):
-    res.headers['Cache-Control'] = 'no-store'
+def set_cache_control(res):
+    if request.path == '/counter':
+        res.headers['Cache-Control'] = 'public, max-age=1800'
     return res
 
 if __name__ == '__main__':
